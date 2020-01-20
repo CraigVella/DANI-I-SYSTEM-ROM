@@ -7,6 +7,10 @@ VRAM:             .SET $8000
 VRAM_CMD:         .SET VRAM + $F00
 VRAM_CHARSLOC:    .SET VRAM + $F10
 VRAM_CHARSBUF:    .SET VRAM + $F20
+VRAM_ZPVAR1:      .SET $02
+VRAM_ZPVAR2:      .SET $04
+VRAM_ZPVAR3:      .SET $06
+VRAM_ZPVAR4:      .SET $08
 ;-------------EO-EQUATES--------------------------
 
 ;--------------MACROS-----------------------------
@@ -57,8 +61,8 @@ DVGA_STORECHAR:              ;-- ptr to Character in ZP 10, stored in LDA, Locat
     LDA #$01                 ; Set Store Command
     STA VRAM_CMD             ; in the VGA command location
 .chkcmd:
-;    LDA VRAM_CMD             ; Check to see if it was loaded in
-;    BNE .chkcmd              ; It was? Okay were good
+    LDA VRAM_CMD             ; Check to see if it was loaded in
+    BNE .chkcmd              ; It was? Okay were good
     PLY			     ; Restore Y
     PLA  		     ; Restore A
     RTS                      ; Return from subroutine
@@ -125,9 +129,10 @@ DVGA_PUTS:
     PHY                       ; Push Y on stack
     LDY #$00                  ; Set Y To Zero
 .loop
-    LDA (V_SYSVAR1),Y               ; Load Byte of String
+    LDA (V_SYSVAR1),Y         ; Load Byte of String
     BEQ .stringDone           ; If this is a NULL character We are done with string
     JSR DVGA_PUT_CHAR         ; Put this Character On Screen
+    CLV                       ; Clear Overflow Flag
     INY                       ; Increase Y
     BVS .stringDone           ; Y Overflowed to 00 - String is over 256 Characers, Exit
     JMP .loop
@@ -246,8 +251,8 @@ DVGA_SCROLL_DOWN:
     PHA
     PHX
     PHY                ; AXY Stored
-    M_PTR_STORE VRAM, V_SYSVAR1
-    M_PTR_STORE [VRAM+40], V_SYSVAR2
+    M_PTR_STORE VRAM, VRAM_ZPVAR3
+    M_PTR_STORE [VRAM+40], VRAM_ZPVAR4
     ; Start the Loop of Moving Memory
     LDY #$00           ; Clear Y
     LDX #$00           ; Clear X
@@ -261,12 +266,12 @@ DVGA_SCROLL_DOWN:
     JMP .endLoop       ; Jump to End of Loop 1160 has been reached
 .loopXStart
     ; Do Stuff Here
-    LDA (V_SYSVAR2)    ; Get Row you will be moving
-    STA (V_SYSVAR1)    ; Put it into Row Moving to
-    INC  V_SYSVAR1     ; increase moving to row
+    LDA (VRAM_ZPVAR4)    ; Get Row you will be moving
+    STA (VRAM_ZPVAR3)    ; Put it into Row Moving to
+    INC  VRAM_ZPVAR3     ; increase moving to row
     BEQ .inc17         ; did it roll over? increase moving to row high byte
 .inc18
-    INC V_SYSVAR2      ; increase moving from low byte
+    INC VRAM_ZPVAR4      ; increase moving from low byte
     BEQ .inc19         ; did it roll over? increase moving from high byte
 .doneWork
     ; Increase Our Loop
@@ -277,17 +282,17 @@ DVGA_SCROLL_DOWN:
     INY
     JMP .loop          ; Go Back to Loop
 .inc17
-    INC V_SYSVAR1+1    ; increase moving to hi byte
+    INC VRAM_ZPVAR3+1    ; increase moving to hi byte
     JMP .inc18         ; back to increase of memory
 .inc19
-    INC V_SYSVAR2+1    ; incrase moving from hi byte
+    INC VRAM_ZPVAR4+1    ; incrase moving from hi byte
     JMP .doneWork      ; go back to done work
 .endLoop
     ; Now we have to clear the last row of screen ZP $16 should hold the last row - just need to clear it with 40 blanks
     LDY #$00           ; clear Y
     LDA #$00           ; blank Char
 .blankLineLoop
-    STA (V_SYSVAR1), Y ; Store Blank in 
+    STA (VRAM_ZPVAR3), Y ; Store Blank in 
     INY                ; Increase Y
     CPY #$28           ; Compare it with 40
     BNE .blankLineLoop ; If It's not 40 yet, loop

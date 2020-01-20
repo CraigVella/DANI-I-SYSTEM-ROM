@@ -15,7 +15,7 @@ V_DANICMDBUFFER:  .SET $400           ; DANICMD Buffer
 ;---------Static STRINGS---------------------------
 ;--------------------------------------------------
 
-S_DANI_OS       .DB "DANI-OS 32k RAM - Ver 1.0", $00
+S_DANI_OS       .DB "DANI-OS 32k RAM - Ver 1.1a", $00
 S_Ready         .DB "System Ready.", $00
 S_CMDS          .DB ">", $00
 S_CMDS_OK       .DB "OK", $00
@@ -25,6 +25,8 @@ S_COMMA         .DB ",", $00
 S_PIPE          .DB "|", $00
 S_DOT           .DB ".", $00
 S_SPACE         .DB " ", $00
+
+S_DEBUG         .DB "DUMP $0270",$00
 
 ;------------- CMD STRING PATTERNS ---------------
 
@@ -63,6 +65,7 @@ DANI_CMD_MAIN:
     ; Input String routine here
     M_PRINT_STR S_CMDS                           ; Print out Command Line String
     JSR SYS_GETSTR                               ; Get String - String in V_INPUTBUFFER
+    ;M_STR_COPY S_DEBUG, V_INPUTBUFFER           ; DEBUG
     M_STR_TOUPPER V_INPUTBUFFER, V_DANICMDBUFFER ; Turn Input Buffer to Caps and Place in DANICMDBUFFER
     M_DANI_PROC_CMD V_DANICMDBUFFER              ; Process the Command
     JMP .loop
@@ -112,7 +115,7 @@ DANI_DUMP_CMD:
     PHA
     PHX
     PHY
-    LDX #$06               ; 6 Bytes passed beginning of JUMP $
+    LDX #$06               ; 6 Bytes passed beginning of DUMP $
     LDY #$01               ; Store LSB first
 .strt
     ; Grab First Byte
@@ -197,6 +200,8 @@ DANI_GENDUMPSTR:
     LDY #$00                                         ; Set Y to 0
 .contWithChars
     LDA (V_DANIVAR1)
+    BEQ .turnIntoPeriod                              ; The byte is 00, we need to turn this into a period
+.backToChar
     STA V_DANIVAR3                                   ; Temp Storage for new Character                                    
     LDA #$00
     STA V_DANIVAR3+1                                 ; Make it a string Null Term
@@ -206,6 +211,11 @@ DANI_GENDUMPSTR:
     CPY #$08
     BNE .contWithChars                               ; Are we at 8 bytes yet? if not cont again
     M_SYS_STR_APPEND V_DANICHARBUFFER, S_PIPE        ; Add a Pipe
+    JMP .eoDaniDumpStr                               ; Jump to End of Method
+.turnIntoPeriod
+    LDA S_DOT                                        ; Replace the 00 with a '.'
+    JMP .backToChar                                  ; Go back to Char
+.eoDaniDumpStr
     PLY
     PLA
     RTS

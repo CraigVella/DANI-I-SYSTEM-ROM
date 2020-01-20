@@ -2,6 +2,15 @@
 ;-------------DANI-I-SYSTEM-ROM-------------------
 ;-------------------------------------------------
 
+;$0000 - $7FFF => SRAM    32k b0.xxxxxxxxxxxxxxx   -- Implemented
+;$8000 - $8FFF => VRAM    04k b1000.xxxxxxxxxxxx   -- Implemented
+;$9000 - $90FF => VIA      1b b10010000.xxxxxxxx   -- Implemented
+;$9100 - $91FF => ACIA     1b b10010001.xxxxxxxx
+;$9200 - $92FF => PIA      1b b10010010.xxxxxxxx
+;$C000 - $FFFF => ROM     16k b11.xxxxxxxxxxxxxx   -- Implemented
+
+;40x30 Characters
+
 ;-------------EQUATES-----------------------------
 VIA:              .SET $9000
 TIMER_COUNT:      .SET $1E            ; Timer Counter (1F is free to be used as GSB Timer Count)
@@ -20,7 +29,7 @@ START:
     JSR DVGA_DRAWLOGO     ; Draw the DANI-I Logo
     JMP DANI_CMD_MAIN     ; Main Program
 HALT:
-    JMP HALT       ; Done: "halt" in an infinite loop
+    JMP HALT              ; Done: "halt" in an infinite loop
 
 ;----------SUB-ROUTINES--------------------------------------------------------------------------------------------
     

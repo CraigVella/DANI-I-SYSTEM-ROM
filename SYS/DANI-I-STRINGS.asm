@@ -370,9 +370,9 @@ SYS_FILLMEMORY:
     LDY #$00            ; Set Y to Value at 21
     LDA V_SYSVAR3       ; Store Value in A
 .cont
+    STA (V_SYSVAR1),Y   ; Null Memory at $10+Y
     CPY V_SYSVAR2       ; Compare Y count to How Much it should blank
     BEQ .done           ; If Y and Amount are equal we are done
-    STA (V_SYSVAR1),Y   ; Null Memory at $10+Y
     INY                 ; Increase Y by 1
     JMP .cont           ; Contineu on
 .done
