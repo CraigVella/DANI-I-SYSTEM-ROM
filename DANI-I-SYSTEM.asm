@@ -15,7 +15,7 @@
 VIA:              .SET $9000
 TIMER_COUNT:      .SET $1E            ; Timer Counter (1F is free to be used as GSB Timer Count)
 ;-------------EO-EQUATES--------------------------
-
+    .START START
     .ORG $C000
     .INCLUDE ".\DANI-MATH.asm"           ; Math Subroutines and Helpers
     .INCLUDE ".\SYS\DANI-I-SYS.asm"      ; Main DANI-I-SYSTEM - (Includes String Functions, Input System, and VGA System)
