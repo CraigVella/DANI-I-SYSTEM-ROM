@@ -10,13 +10,16 @@
 ;$C000 - $FFFF => ROM     16k b11.xxxxxxxxxxxxxx   -- Implemented
 
 ;40x30 Characters
-
+    
+    .OPT Proc65c02
+    
 ;-------------EQUATES-----------------------------
 VIA:              .SET $9000
 TIMER_COUNT:      .SET $1E            ; Timer Counter (1F is free to be used as GSB Timer Count)
 ;-------------EO-EQUATES--------------------------
     .START START
     .ORG $C000
+    
     .INCLUDE ".\DANI-MATH.asm"           ; Math Subroutines and Helpers
     .INCLUDE ".\SYS\DANI-I-SYS.asm"      ; Main DANI-I-SYSTEM - (Includes String Functions, Input System, and VGA System)
     .INCLUDE ".\DANI-I-COMMANDER.asm"    ; Main Commander Program
@@ -43,7 +46,7 @@ SYS_INIT:
     CLI                                      ; Enable Interrupts
     RTS
 
-;----------System Setup 6522---- -----------------
+;----------System Setup 6522----------------------
 ;-- Parameters - VOID
 ;-------------------------------------------------
 SYS_INIT6522:

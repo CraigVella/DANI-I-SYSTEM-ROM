@@ -260,9 +260,9 @@ DANI_JMPR_CMD:
     JMP .done
 .output
     ; The Memory location should be at V_DANIVAR2 of what we need to jump
-    LDA #>[.done - 1]
+    LDA #>{.done - 1}
     PHA
-    LDA #<[.done - 1]
+    LDA #<{.done - 1}
     PHA
     JMP (V_DANIVAR2)
 .done

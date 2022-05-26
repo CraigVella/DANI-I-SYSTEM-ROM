@@ -29,7 +29,7 @@ M_PRINT_STR:     .MACRO string             ; Print a String to screen
 DVGA_LOADDEFCHARACTERS:
     PHA
     PHX
-    M_PTR_STORE [CHAR_ROM+$468-8], V_SYSVAR3 ; Store starting location in V_SYSVAR3
+    M_PTR_STORE {CHAR_ROM+$468-8}, V_SYSVAR3 ; Store starting location in V_SYSVAR3
     LDX #$8C                                 ; Set X counter to 140 (140 chars total)
 .loop
     STX V_SYSVAR1                            ; Set Location of this character
@@ -252,7 +252,7 @@ DVGA_SCROLL_DOWN:
     PHX
     PHY                ; AXY Stored
     M_PTR_STORE VRAM, VRAM_ZPVAR3
-    M_PTR_STORE [VRAM+40], VRAM_ZPVAR4
+    M_PTR_STORE {VRAM+40}, VRAM_ZPVAR4
     ; Start the Loop of Moving Memory
     LDY #$00           ; Clear Y
     LDX #$00           ; Clear X

@@ -23,7 +23,7 @@ M_CUR_BLINK_OFF: .MACRO
     .ENDM
     
 M_SET_CURSOR:    .MACRO row, column        ; Place Cursor on Row and Column
-.local = [row * 40] + column + $8000
+.local = {row * 40} + column + $8000
     M_PTR_STORE .local, CURSOR_LOC
     .ENDM
 ;-------------EO-MACROS---------------------------
