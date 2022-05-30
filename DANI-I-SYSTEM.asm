@@ -10,6 +10,8 @@
 ;$C000 - $FFFF => ROM     16k b11.xxxxxxxxxxxxxx   -- Implemented
 
 ;40x30 Characters
+
+DEBUG .SET 0 ; Debug on = 1, Debug off = 0
     
     .OPT Proc65c02
     

@@ -15,31 +15,42 @@ V_DANICMDBUFFER:  .SET $400           ; DANICMD Buffer
 ;---------Static STRINGS---------------------------
 ;--------------------------------------------------
 
-S_DANI_OS       .DB "DANI-OS 32k RAM - Ver 1.1a", $00
+S_DANI_OS       .DB "DANI-OS 32k RAM - Ver 1.2", $00
 S_Ready         .DB "System Ready.", $00
 S_CMDS          .DB ">", $00
-S_CMDS_OK       .DB "OK", $00
+S_CMDS_OK       .DB "Ok", $00
 
 S_COLON         .DB ":", $00
 S_COMMA         .DB ",", $00
 S_PIPE          .DB "|", $00
 S_DOT           .DB ".", $00
 S_SPACE         .DB " ", $00
+S_DOLLAR        .DB "$", $00
+S_EQUAL         .DB "=", $00
 
-S_DEBUG         .DB "DUMP $0270",$00
-
+ .IF DEBUG
+S_DEBUG         .DB "WRITE $10FF",$00
+ .ENDIF
+	
 ;------------- CMD STRING PATTERNS ---------------
 
 S_CMDP_PEEK     .DB "PEEK $????",$00
-S_CMDP_POKE     .DB "POKE $????:$??", $00
+S_CMDP_POKE     .DB "POKE $????:$??",$00
 S_CMDP_JMPR     .DB "JMPR $????",$00
 S_CMDP_DUMP     .DB "DUMP $????",$00
+S_CMDP_WRITE    .DB "WRITE $????",$00
 
 ;------------- CMD STRING OUTPUTS ----------------
 
 S_CMDS_BADC     .DB "Bad Command", $00
 S_CMDS_BADM     .DB "Bad Memory Address", $00
 S_CMDS_VALE     .DB "Value -> $", $00
+S_CMDS_WE       .DB "Write Error - Expected $", $00
+S_CMDS_GOT      .DB " got $", $00
+S_WRITE_BADFORM .DB "Hex Bad Format", $00
+S_WRITE_BADVAL  .DB "Bad Value", $00
+S_WRITE_DONE    .DB "XX", $00
+S_WRITE_INST    .DB "$XX <- Exits", $00
 
 ;-------------MACROS------------------------------
 M_DANI_PROC_CMD: .MACRO cmd                ; Command To Process
@@ -64,8 +75,11 @@ DANI_CMD_MAIN:
 .loop
     ; Input String routine here
     M_PRINT_STR S_CMDS                           ; Print out Command Line String
+ .IF DEBUG == 0
     JSR SYS_GETSTR                               ; Get String - String in V_INPUTBUFFER
-    ;M_STR_COPY S_DEBUG, V_INPUTBUFFER           ; DEBUG
+ .ELSE
+    M_STR_COPY S_DEBUG, V_INPUTBUFFER            ; DEBUG !!!!
+ .ENDIF
     M_STR_TOUPPER V_INPUTBUFFER, V_DANICMDBUFFER ; Turn Input Buffer to Caps and Place in DANICMDBUFFER
     M_DANI_PROC_CMD V_DANICMDBUFFER              ; Process the Command
     JMP .loop
@@ -79,14 +93,16 @@ DANI_PROC_CMD:
     PHA
     ; Here we will check for each command - If we dont find a command we will print out Error
     M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_PEEK
-    BCS .peek             ; Found a Peek Command in Buffer
+    BCS_L .peek             ; Found a Peek Command in Buffer
     M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_POKE
-    BCS .poke             ; Found a Poke Command in Buffer
+    BCS .poke              ; Found a Poke Command in Buffer
     M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_JMPR
-    BCS .jmpr             ; Found a Poke Command in Buffer
+    BCS .jmpr              ; Found a Poke Command in Buffer
     M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_DUMP
-    BCS .dump             ; Found a Dump Command in Buffer
-    JMP .badc             ; Didn't match any commands, must be a bad one
+    BCS .dump              ; Found a Dump Command in Buffer
+    M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_WRITE
+    BCS .write             ; Found a Write Command in Buffer
+    JMP .badc              ; Didn't match any commands, must be a bad one
 .badc
     M_PRINT_STR S_CMDS_BADC
     JSR DVGA_CUR_CR
@@ -102,6 +118,9 @@ DANI_PROC_CMD:
     JMP .done
 .dump
     JSR DANI_DUMP_CMD
+    JMP .done
+.write
+    JSR DANI_WRITE_CMD
     JMP .done
 .done
     PLA
@@ -314,12 +333,135 @@ DANI_POKE_CMD:
 .output
     LDA V_DANIVAR2
     STA (V_DANIVAR2+1)     ; We basically use V_DANIVAR2 as 3 Bytes, thus why we cannot store anything inside V_DANIVAR3
-    M_PRINT_STR S_CMDS_OK
+    LDA V_DANIVAR2         ; We want to check to make sure the memory was written correctly
+    CMP (V_DANIVAR2+1)     ; Compare to make sure they do match
+    BNE .writeerr          ; was there a write error? then deal with it
+    M_PRINT_STR S_CMDS_OK  ; Print OK
+    JSR DVGA_CUR_CR        ; Skip Line
+    JMP .done
+.writeerr
+    M_STR_FROMBYTE_ZP V_DANIVAR2 ; PUT Into V_CCHARBUFFER What it was supposed to be
+    M_STR_CONCAT S_CMDS_WE, V_CCHARBUFFER, V_DANICHARBUFFER
+    M_PRINT_STR V_DANICHARBUFFER
+    M_PTR_COPY V_DANIVAR2+1, V_SYSVAR1 ; PUT INTO V_CCHARBUFFER what it actually was
+    JSR SYS_STR_FROMBYTE
+    M_STR_CONCAT S_CMDS_GOT, V_CCHARBUFFER, V_DANICHARBUFFER
+    M_PRINT_STR V_DANICHARBUFFER
     JSR DVGA_CUR_CR        ; Skip Line
 .done
     PLA
     PLX
     PLY
+    RTS
+
+;----------DANI-WRITE_CMD--------------------------
+;-- Executes the Write Command
+;-- Parameters - V_DANIVAR1 - 2Bytes - String Loc of CMD
+;-------------------------------------------------
+DANI_WRITE_CMD:
+    PHA
+    PHX
+    PHY
+.strt
+    ; Grab the first Memory Byte
+    M_PTR_COPY V_DANIVAR1, V_SYSVAR1
+    CLC
+    LDA #$07                ; 6 Bytes passed the beginning of WRITE $
+    ADC V_SYSVAR1           ; Add 7 To StrPointer
+    STA V_SYSVAR1           ; Store new Start of pointer
+    M_PTR_STORE_ZP V_DANIVAR2+1, V_SYSVAR2
+    JSR SYS_BYTE_FROMSTR    ; Value is Stored in V_DANIVAR2
+    BCS_L .err
+    CLC
+    LDA #$02                ; 9 Bytes passed Write $ for LSB
+    ADC V_SYSVAR1           ; Add 2 to StrPointer
+    STA V_SYSVAR1           ; Store new beginning of Pointer
+    M_PTR_STORE_ZP V_DANIVAR2, V_SYSVAR2
+    JSR SYS_BYTE_FROMSTR
+    BCS_L .err
+    LDY #$00                ; Set Y Counter to 0
+    M_PRINT_STR S_WRITE_INST; Put the instructions out there
+    JSR DVGA_CUR_CR         ; Skip Line
+.get
+    ; V_DANIVAR2 Now contains where you want to write
+    CLC                          ; Clear Carry so we dont get Random +1's
+    LDA V_DANIVAR2               ; Load LSB
+    STA V_DANIVAR4               ; Store it in Variable
+    TYA                          ; Transfer how far we have gone to A
+    ADC V_DANIVAR4               ; Increase LSB by it
+    STA V_DANIVAR4               ; Store it back in Danivar 4
+    LDA V_DANIVAR2+1             ; LOAD GSB
+    BCS .addToGSB                ; If carry was set add to GSB
+    JMP .displayAddress
+.addToGSB
+    CLC
+    ADC #$01
+.displayAddress
+    STA V_DANIVAR4+1
+    M_PRINT_STR S_DOLLAR         ; $
+    M_STR_FROMBYTE V_DANIVAR4+1  ; String From GSB
+    M_PRINT_STR V_CCHARBUFFER    ; Print GSB
+    M_STR_FROMBYTE V_DANIVAR4    ; Create string of LSB
+    M_PRINT_STR V_CCHARBUFFER    ; Print LSB
+    M_PRINT_STR S_COLON          ; Print :
+    M_PRINT_STR S_DOLLAR         ; $
+    JSR SYS_GETSTR         ; Get String
+    ; Make sure 2 things - its only 2 bytes long
+    ; and it's a hex number
+    LDA #$02
+    CMP V_INPUTBUFFER_S
+    BNE .errForm
+    ; Good Length - Check for Exit - "XX"
+    M_STR_COMPARE V_INPUTBUFFER, S_WRITE_DONE ; Check to see if we are done writing
+    BCC_L .complete
+    ; Okay Grab the -hopefully- byte from string
+    M_PTR_STORE V_INPUTBUFFER, V_SYSVAR1
+    M_PTR_STORE_ZP V_DANIVAR3, V_SYSVAR2
+    JSR SYS_BYTE_FROMSTR    ; Read the Byte into V_DANIVAR3
+    BCS .notNumber          ; If this is not a number handle error
+    LDA V_DANIVAR3          ; Load the byte that was typed into A
+    STA (V_DANIVAR2),Y      ; Store it in the Mem Location + Y
+    ; Check that we wrote it
+    LDA V_DANIVAR3          
+    CMP (V_DANIVAR2),Y      ; Check to see if it matches
+    BNE .writeError         ; Write Error
+    INY                     ; Increment Y
+    BEQ .rollY              ; Did Y Roll? If so we will inc 
+    JMP .get
+.rollY
+    ; We need to roll over the V_DANIVAR2 GSB
+    INC V_DANIVAR2+1
+    JMP .get
+.errForm
+    M_PRINT_STR S_WRITE_BADFORM
+    JSR DVGA_CUR_CR        ; Skip Line
+    JMP .get
+.notNumber
+    M_PRINT_STR S_WRITE_BADVAL
+    JSR DVGA_CUR_CR        ; Skip Line
+    JMP .get
+.writeError
+    M_STR_FROMBYTE_ZP V_DANIVAR3 ; PUT Into V_CCHARBUFFER What it was supposed to be
+    M_STR_CONCAT S_CMDS_WE, V_CCHARBUFFER, V_DANICHARBUFFER
+    M_PRINT_STR V_DANICHARBUFFER
+    LDA (V_DANIVAR2),Y
+    STA V_DANIVAR3+1
+    M_STR_FROMBYTE_ZP V_DANIVAR3+1 ; PUT INTO V_CCHARBUFFER what it actually was
+    M_STR_CONCAT S_CMDS_GOT, V_CCHARBUFFER, V_DANICHARBUFFER
+    M_PRINT_STR V_DANICHARBUFFER
+    JSR DVGA_CUR_CR        ; Skip Line
+    JMP .get
+.err
+    M_PRINT_STR S_CMDS_BADM
+    JSR DVGA_CUR_CR        ; Skip Line
+    JMP .done
+.complete
+    M_PRINT_STR S_CMDS_OK
+    JSR DVGA_CUR_CR        ; Skip Line
+.done
+    PLY
+    PLX
+    PLA
     RTS
 
 ;----------DANI-PEEK_CMD--------------------------

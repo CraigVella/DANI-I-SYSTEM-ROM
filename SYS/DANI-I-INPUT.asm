@@ -9,6 +9,7 @@ CURSOR_BLI_S:     .SET $1B            ; Current Blink Status
 INPUT_CBUF:       .SET $1C            ; Input Buffer
 V_INPUTBUFFER:    .SET $200           ; 200-2FF (255 char input buffer)
 V_INPUTBUFFER_S:  .SET $1D            ; Input Buffer Current Size
+; --- ALL OF ZP $10 -> $1F IS USED BY CRITICAL SYSTEM ---
 ;-------------EO-EQUATES--------------------------
 
 ;-------------MACROS------------------------------

@@ -7,6 +7,12 @@ V_CCHARBUFFER:    .SET $300           ; Common System 255 Byte Character Buffer
 ;-------------EO-EQUATES--------------------------
 
 ;-------------MACROS------------------------------
+M_STR_COMPARE:   .MACRO srcPtr, dstPtr     ; Compare 2 strings
+    M_PTR_STORE srcPtr, V_SYSVAR1
+    M_PTR_STORE dstPtr, V_SYSVAR2
+    JSR SYS_STR_COMPARE
+    .ENDM
+
 M_STR_TOUPPER:   .MACRO srcPtr, dstPtr     ; String to uppercase
     M_PTR_STORE srcPtr, V_SYSVAR1
     M_PTR_STORE dstPtr, V_SYSVAR2
@@ -34,6 +40,11 @@ M_STR_PATTERNMATCH: .MACRO string, pattern ; See if String Pattern Matches
     
 M_STR_FROMBYTE: .MACRO bytePtr             ; Create String from Byte
     M_PTR_STORE bytePtr, V_SYSVAR1
+    JSR SYS_STR_FROMBYTE
+    .ENDM
+
+M_STR_FROMBYTE_ZP: .MACRO bytePtr             ; Create String from Byte (ZP)
+    M_PTR_STORE_ZP bytePtr, V_SYSVAR1
     JSR SYS_STR_FROMBYTE
     .ENDM
 
@@ -298,6 +309,38 @@ SYS_BYTE_FROMSTR:
     SEC
 .done
     PLY
+    PLA
+    RTS
+    
+;-----------SYS-String-Compare--------------------------------
+;-- Takes 2 Strings and compares them byte for byte
+;-- Parameters - V_SYSVAR1 - 2Bytes - LSB -> GSB = 1st String To Compare
+;-- Parameters - V_SYSVAR2 - 2Bytes - LSB -> GSB = 2nd String To Compare
+;-- If strings are different Carry will be set - if strings are the same Carry will be cleared
+;-------------------------------------------------------------
+SYS_STR_COMPARE:
+    PHA
+    PHX
+    PHY
+    CLC                   ; Clear Carry Flag
+    LDY #$00              ; Set Y Index to 0
+.next
+    LDA (V_SYSVAR1),Y     ; Load Character 1st String
+    CMP (V_SYSVAR2),Y     ; Compare it to Char of 2nd String
+    BNE .notEqual
+    LDA #$00
+    CMP (V_SYSVAR1),Y     ; Check if String is Ending
+    BEQ .equal
+    INY
+    JMP .next
+.notEqual
+    SEC
+    JMP .done
+.equal
+    CLC
+.done
+    PLY
+    PLX
     PLA
     RTS
     

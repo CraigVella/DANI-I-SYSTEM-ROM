@@ -61,8 +61,10 @@ DVGA_STORECHAR:              ;-- ptr to Character in ZP 10, stored in LDA, Locat
     LDA #$01                 ; Set Store Command
     STA VRAM_CMD             ; in the VGA command location
 .chkcmd:
-    LDA VRAM_CMD             ; Check to see if it was loaded in
+    LDA VRAM_CMD             ; Check to see if it was loaded in.
+    .IF DEBUG==0             ; Debug Check to see if we should disable VGA Char Checking
     BNE .chkcmd              ; It was? Okay were good
+    .ENDIF		     ; EO Debug Check
     PLY			     ; Restore Y
     PLA  		     ; Restore A
     RTS                      ; Return from subroutine
