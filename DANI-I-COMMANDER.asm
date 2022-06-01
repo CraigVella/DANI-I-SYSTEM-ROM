@@ -15,7 +15,7 @@ V_DANICMDBUFFER:  .SET $400           ; DANICMD Buffer
 ;---------Static STRINGS---------------------------
 ;--------------------------------------------------
 
-S_DANI_OS       .DB "DANI-OS 32k RAM - Ver 1.2", $00
+S_DANI_OS       .DB "DANI-OS 32k RAM - Ver 1.3", $00
 S_Ready         .DB "System Ready.", $00
 S_CMDS          .DB ">", $00
 S_CMDS_OK       .DB "Ok", $00
@@ -29,7 +29,7 @@ S_DOLLAR        .DB "$", $00
 S_EQUAL         .DB "=", $00
 
  .IF DEBUG
-S_DEBUG         .DB "WRITE $10FF",$00
+S_DEBUG         .DB "BASIC",$00
  .ENDIF
 	
 ;------------- CMD STRING PATTERNS ---------------
@@ -39,6 +39,7 @@ S_CMDP_POKE     .DB "POKE $????:$??",$00
 S_CMDP_JMPR     .DB "JMPR $????",$00
 S_CMDP_DUMP     .DB "DUMP $????",$00
 S_CMDP_WRITE    .DB "WRITE $????",$00
+S_CMDP_BASIC    .DB "BASIC", $00
 
 ;------------- CMD STRING OUTPUTS ----------------
 
@@ -93,15 +94,17 @@ DANI_PROC_CMD:
     PHA
     ; Here we will check for each command - If we dont find a command we will print out Error
     M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_PEEK
-    BCS_L .peek             ; Found a Peek Command in Buffer
+    BCS_L .peek            ; Found a Peek Command in Buffer
     M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_POKE
-    BCS .poke              ; Found a Poke Command in Buffer
+    BCS_L .poke            ; Found a Poke Command in Buffer
     M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_JMPR
-    BCS .jmpr              ; Found a Poke Command in Buffer
+    BCS_L .jmpr            ; Found a Poke Command in Buffer
     M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_DUMP
     BCS .dump              ; Found a Dump Command in Buffer
     M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_WRITE
     BCS .write             ; Found a Write Command in Buffer
+    M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_BASIC
+    BCS .basic
     JMP .badc              ; Didn't match any commands, must be a bad one
 .badc
     M_PRINT_STR S_CMDS_BADC
@@ -122,6 +125,8 @@ DANI_PROC_CMD:
 .write
     JSR DANI_WRITE_CMD
     JMP .done
+.basic
+    JMP DANI_BASIC_BOOT ; This we will never return from
 .done
     PLA
     RTS

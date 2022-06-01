@@ -25,6 +25,7 @@ TIMER_COUNT:      .SET $1E            ; Timer Counter (1F is free to be used as 
     .INCLUDE ".\DANI-MATH.asm"           ; Math Subroutines and Helpers
     .INCLUDE ".\SYS\DANI-I-SYS.asm"      ; Main DANI-I-SYSTEM - (Includes String Functions, Input System, and VGA System)
     .INCLUDE ".\DANI-I-COMMANDER.asm"    ; Main Commander Program
+    .INCLUDE ".\BASIC\DANI-EH-BASIC.asm" ; ehBasic
 
 RESET:
     LDX #$FF              ; Initialize the Stack Pointer
@@ -95,6 +96,6 @@ VECTORS:
     .ORG $FFFA     ; 6502 Starts reading its vectors here
     .word HALT     ; NMI
     .word RESET    ; RESET
-    .word SYS_IRQ  ; IRQ-BRK
-   
+    .WORD SYS_IRQ  ; IRQ-BRK
+
    .END
