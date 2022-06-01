@@ -65,9 +65,10 @@ SYS_GETSTR:
     BEQ .inputComplete   ; If over 254, it's an overflow
     JMP .getNextChar
 .inputComplete
-    LDA #$00             ; Turn off the Blink
-    STA (CURSOR_LOC)
-    JSR DVGA_CUR_CR
+    LDA #$00
+    STA INPUT_CBUF       ; Clear the Input Char Buffer
+    STA (CURSOR_LOC)     ; Turn off the blink
+    JSR DVGA_CUR_CR      ; CR
     JMP .done
 .backspace
     LDX V_INPUTBUFFER_S  ; Put the Size of the current string in X
