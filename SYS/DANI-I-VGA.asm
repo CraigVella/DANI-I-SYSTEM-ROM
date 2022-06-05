@@ -148,15 +148,9 @@ DVGA_PUTS:
 ;-- Desc: Puts Char on Screen at Cursor Location and Increases Cursor Location
 ;--------------------------------------------------
 DVGA_PUT_CHAR:
-    CMP #$0D                  ; Is this a Carriage Return?
-    BEQ .doCR		      ; It is? This should just be a CR
     STA (CURSOR_LOC)          ; Store this character into Cursor Location
     JSR DVGA_INC_CUR          ; Increase Cursor Location
     RTS
-.doCR
-    LDA #$00                  ; Turn off the Blink
-    STA (CURSOR_LOC)
-    JMP DVGA_CUR_CR           ; Just run the CR Routine
 
 ;---------DVGA-Carriage-Return---------------------
 ;-- Parameters - VOID 

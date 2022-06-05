@@ -15,7 +15,7 @@ V_DANICMDBUFFER:  .SET $400           ; DANICMD Buffer
 ;---------Static STRINGS---------------------------
 ;--------------------------------------------------
 
-S_DANI_OS       .DB "DANI-OS 32k RAM - Ver 1.3.1", $00
+S_DANI_OS       .DB "DANI-OS 32k RAM - Ver 1.3.2", $00
 S_Ready         .DB "System Ready.", $00
 S_CMDS          .DB ">", $00
 S_CMDS_OK       .DB "Ok", $00

@@ -1000,11 +1000,12 @@ LAB_INLN
 
 ; receive line from keyboard
 
-                              ; $08 as delete key (BACKSPACE on standard keyboard)
+                               ; $08 as delete key (BACKSPACE on standard keyboard)
 LAB_134B
-      JSR   LAB_PRNA          ; go print the character
-      DEX                     ; decrement the buffer counter (delete)
-      .byte $2C               ; make LDX into BIT abs
+      ;JSR   LAB_PRNA          ; go print the character
+      JSR    DANI_LAB_BACKSPACE; DANI Patch for Backspace
+      DEX                      ; decrement the buffer counter (delete)
+      .byte $2C                ; make LDX into BIT abs
 
 ; call for BASIC input (main entry point)
 
@@ -2478,11 +2479,15 @@ LAB_1866
 
 ; print CR/LF
 
+;LAB_CRLF
+;      LDA   #$0D              ; load [CR]
+;      JSR   LAB_PRNA          ; go print the character
+;      LDA   #$0A              ; load [LF]
+;      BNE   LAB_PRNA          ; go print the character and return, branch always
+
+; print CR/LF Patched for DANI-SYSTEM
 LAB_CRLF
-      LDA   #$0D              ; load [CR]
-      JSR   LAB_PRNA          ; go print the character
-      LDA   #$0A              ; load [LF]
-      BNE   LAB_PRNA          ; go print the character and return, branch always
+      JSR   DVGA_CUR_CR
 
 LAB_188B
       LDA   TPos              ; get terminal position
@@ -7998,7 +8003,7 @@ LAB_MSZM
 
 LAB_SMSG
       .byte " Bytes free",$0D,$0A,$0A
-      .byte "Enhanced BASIC 2.22p5",$0A,$00
+      .byte "Enhanced BASIC 2.22p5 (DANI)",$0A,$00
 
 ; numeric constants and series
 
