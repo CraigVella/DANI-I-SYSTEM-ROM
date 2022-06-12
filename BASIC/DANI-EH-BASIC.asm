@@ -24,6 +24,12 @@ DANI_LAB_IN:
 	LDA #$00              ; Clear Input
 	STA INPUT_CBUF        ; CBUF = 0
 	PLA                   ; Put Char into A
+	CMP #$1B              ; Check to see if we have an ESC
+	BEQ .makeCC           ; Make this a CTRL-C
+	JMP .noAlter
+.makeCC
+	LDA #$03              ; Transform this into a Ctrl-C
+.noAlter
 	SEC	              ; Set Carry to let Basic know we have a char
 	JMP .done
 .emptyInput
@@ -32,8 +38,24 @@ DANI_LAB_IN:
 	RTS
 	
 DANI_LAB_OUT:
+	CMP #$0D
+	BEQ .doCR
+	CMP #$0A
+	BEQ .ignore
+	CMP #$08
+	BEQ .doBackspace
 	JMP DVGA_PUT_CHAR
-	
+.doCR
+	PHA 
+	LDA #$00                  ; Turn off the Blink
+    
+	STA (CURSOR_LOC)
+	JSR DVGA_CUR_CR
+	PLA
+	JMP .ignore
+.doBackspace
+	JMP DANI_LAB_BACKSPACE
+.ignore
 DANI_LAB_LOAD:
 DANI_LAB_SAVE:
 	RTS
@@ -47,10 +69,42 @@ DANI_LAB_BACKSPACE:
     	JSR DVGA_DEC_CUR     ; Decrease the Character once more
     	PLA                  ; Pull A and set NZ
     	RTS
-	
+
 DANI_LAB_vec
 	.WORD DANI_LAB_IN
 	.WORD DANI_LAB_OUT
 	.WORD DANI_LAB_LOAD
 	.WORD DANI_LAB_SAVE 
 DANI_LAB_endvec
+    	
+; ------ DANI BASIC EXTENDED ROUTINES ---------
+DANI_BASIC_VAR1 .SET $E2
+DANI_BASIC_VAR2 .SET $E4
+DANI_BASIC_VAR3 .SET $E6
+
+DANI_BASIC_SET_CURSOR:
+	JSR LAB_SCGB	      ; Scan for "," and get byte
+	CPX #40               ; Compare to see if larger than 39
+	BCS_L LAB_FCER        ; Branch on Carry Set LONG to Function Error
+	STX DANI_BASIC_VAR1+1 ; Store X in Var 1 LSB
+	JSR LAB_SCGB          ; Scan for "," again
+	CPX #30               ; Compare to see if larger than 29
+	BCS_L LAB_FCER        ; Branch on Carry Set LONG to Function Error
+	STX DANI_BASIC_VAR1   ; Store Y in Var 1 GSB
+	; Variables are stored from basic in DBV1Low and DBV1Hi
+	; Multiply Width by 40 and add height
+	LDA #40               ; 40
+	STA V_MATHVAR1        ; into var 1
+	LDA DANI_BASIC_VAR1   ; X
+	STA V_MATHVAR2        ; into var 2
+	JSR SYS_MULT_16BIT    ; Multiply them (16bit)
+	M_PTR_COPY V_MATHVAR2, CURSOR_LOC ; Store result in Cursor Locaiton
+	LDA DANI_BASIC_VAR1+1 ; Load our Y
+	STA V_MATHVAR1        ; Store in Mathvar 1
+	M_PTR_STORE CURSOR_LOC, V_MATHVAR2 ; Store pointer of 16 bit number in Mathvar 2
+	JSR SYS_ADD_16BIT     ; Safely add the 8 bit number into 16 bit number
+	LDA CURSOR_LOC+1      ; Load Hi byte into A
+	CLC                   ; Clear Carry
+	ADC #$80              ; Add $80 to GSB
+	STA CURSOR_LOC+1      ; Store it back - Cursor_loc now has new cursor Loc
+	RTS

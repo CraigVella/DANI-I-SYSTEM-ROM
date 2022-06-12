@@ -5,8 +5,8 @@
 ;-------------EQUATES-----------------------------
 V_MATHVAR1:       .SET $20            ; Math Variable 1
 V_MATHVAR2:       .SET $22            ; Math Variable 2
-M_MATHVAR3:       .SET $24            ; Math Variable 3
-M_MATHVAR4:       .SET $26            ; Math Variable 4
+V_MATHVAR3:       .SET $24            ; Math Variable 3
+V_MATHVAR4:       .SET $26            ; Math Variable 4
 ;-------------------------------------------------
 
 ;-------------MACROS------------------------------
@@ -28,9 +28,9 @@ M_SYS_ADD_16BIT: .MACRO amt, val
 ;--------------------MATH-SUBROUTINES------------------------------------
 
 ;----------Safe 16 Bit Addition -----------------
-;-- Adds amount from a two byte number pointed to V_SYSVAR2 Safely
-;-- Parameters - V_MATHVAR1 = Amount to Dec V_SYSVAR2 by
-;-- Parameters - V_MATHVAR2 = Ptr to 2 byte to val Deduct
+;-- Adds amount from a two byte number pointed to V_MATHVAR2 Safely
+;-- Parameters - V_MATHVAR1 = Amount to add by (8 bit)
+;-- Parameters - V_MATHVAR2 = Ptr to 2 byte to add
 ;-------------------------------------------------
 SYS_ADD_16BIT:
     PHA
@@ -52,8 +52,8 @@ SYS_ADD_16BIT:
 
 
 ;----------Safe 16 Bit Subtraction -----------------
-;-- Deducts amount from a two byte number pointed to V_SYSVAR2 Safely
-;-- Parameters - V_MATHVAR1 = Amount to Dec V_SYSVAR2 by
+;-- Deducts amount from a two byte number pointed to V_MATHVAR2 Safely
+;-- Parameters - V_MATHVAR1 = Amount to Dec V_MATHVAR2 by (8 bit)
 ;-- Parameters - V_MATHVAR2 = Ptr to 2 byte to val Deduct
 ;-------------------------------------------------
 SYS_SUB_16BIT:

@@ -1002,8 +1002,7 @@ LAB_INLN
 
                                ; $08 as delete key (BACKSPACE on standard keyboard)
 LAB_134B
-      ;JSR   LAB_PRNA          ; go print the character
-      JSR    DANI_LAB_BACKSPACE; DANI Patch for Backspace
+      JSR   LAB_PRNA          ; go print the character
       DEX                      ; decrement the buffer counter (delete)
       .byte $2C                ; make LDX into BIT abs
 
@@ -2479,15 +2478,11 @@ LAB_1866
 
 ; print CR/LF
 
-;LAB_CRLF
-;      LDA   #$0D              ; load [CR]
-;      JSR   LAB_PRNA          ; go print the character
-;      LDA   #$0A              ; load [LF]
-;      BNE   LAB_PRNA          ; go print the character and return, branch always
-
-; print CR/LF Patched for DANI-SYSTEM
 LAB_CRLF
-      JSR   DVGA_CUR_CR
+      LDA   #$0D              ; load [CR]
+      JSR   LAB_PRNA          ; go print the character
+      LDA   #$0A              ; load [LF]
+      BNE   LAB_PRNA          ; go print the character and return, branch always
 
 LAB_188B
       LDA   TPos              ; get terminal position
