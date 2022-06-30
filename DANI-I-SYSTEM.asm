@@ -24,8 +24,9 @@ TIMER_COUNT:      .SET $1E            ; Timer Counter (1F is free to be used as 
     
     .INCLUDE ".\DANI-MATH.asm"           ; Math Subroutines and Helpers
     .INCLUDE ".\SYS\DANI-I-SYS.asm"      ; Main DANI-I-SYSTEM - (Includes String Functions, Input System, and VGA System)
+    .INCLUDE ".\SYS\DANI-I-DRTC.asm"     ; DANI-I DRIVE & RTC
     .INCLUDE ".\DANI-I-COMMANDER.asm"    ; Main Commander Program
-    .INCLUDE ".\BASIC\DANI-EH-BASIC.asm" ; ehBasic
+    .INCLUDE ".\BASIC\DANI-EH-BASIC.asm" ; ehBasi
 
 RESET:
     LDX #$FF              ; Initialize the Stack Pointer
@@ -54,18 +55,19 @@ SYS_INIT:
 ;-------------------------------------------------
 SYS_INIT6522:
     LDA #@00000000           ; Set all Pins to input
-    STA VIA+$03              ; And Set DDR to that on Port A
-    LDA #@00000000           ; Negative Active on CA1 & CA2
+    STA VIA+$02              ; And Set DDR to that on Port B
+    M_DRTC_SET_OUT           ; Set Drive to Output Mode
+    LDA #@00001000           ; Negative Active PB & Handshake on CA2
     STA VIA+$0C
     ; Now Set up Timer
     LDA #$FF
     STA VIA+$04              ; Lo Byte Counter FF
     LDA #$FF
     STA VIA+$05              ; Hi Byte Counter FF
-    LDA #@11000000           ; Enable Continuas Interrupts on T1
+    LDA #@01000011           ; Enable Continuas Interrupts on T1 & LATCH on PA & PB
     STA VIA+$0B              ; Put it in ACR
     ; Enable Interrupts
-    LDA #@11000010           ; Enable Interrupt on Timer1 and CA1
+    LDA #@11010010           ; Enable Interrupt on Timer1, CB1 AND CA1
     STA VIA+$0E
     RTS
     
@@ -74,11 +76,16 @@ SYS_INIT6522:
 ;-------------------------------------------------
 SYS_IRQ:
     PHA
-    ; Did a Timer go off or Is Data on PortA
-    LDA #@00000010   ; Test for CA1
+    LDA #@00000010
+    BIT VIA+$0D
+    BEQ .checkKeyboard
+    JSR DRTC_IRQ
+.checkKeyboard
+    ; Did a Timer go off or Is Data on PortB
+    LDA #@00010000   ; Test for CB1
     BIT VIA+$0D      ; Flag Register of VIA
-    BEQ .checkTimer1 ; CA1 didn't interrupt Check Timer
-    LDA VIA+$01      ; Read from PortA of the VIA
+    BEQ .checkTimer1 ; CB1 didn't interrupt Check Timer
+    LDA VIA+$00      ; Read from PortB of the VIA
     STA INPUT_CBUF   ; Store it in input Buffer 
 .checkTimer1
     LDA #@01000000   ; Check Timer1 Bit
