@@ -40,6 +40,8 @@ S_CMDP_JMPR     .DB "JMPR $????",$00
 S_CMDP_DUMP     .DB "DUMP $????",$00
 S_CMDP_WRITE    .DB "WRITE $????",$00
 S_CMDP_BASIC    .DB "BASIC", $00
+S_CMDP_GETACLK  .DB "GETACLK", $00
+S_CMDP_DIR      .DB "DIR", $00
 
 ;------------- CMD STRING OUTPUTS ----------------
 
@@ -66,7 +68,7 @@ M_DANI_PROC_CMD: .MACRO cmd                ; Command To Process
 ;-- Parameters - VOID
 ;-------------------------------------------------
 DANI_CMD_MAIN:
-    ; -- Main Dani Commander - Maybe we port Basic over eventually
+    ; -- Main Dani Commander
     M_SET_CURSOR 4, 0                            ; Set Cursor to Row 4
     M_PRINT_STR S_DANI_OS                        ; Print String
     M_SET_CURSOR 5, 0                            ; Set Cursor to Row 5
@@ -100,11 +102,15 @@ DANI_PROC_CMD:
     M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_JMPR
     BCS_L .jmpr            ; Found a Poke Command in Buffer
     M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_DUMP
-    BCS .dump              ; Found a Dump Command in Buffer
+    BCS_L .dump            ; Found a Dump Command in Buffer
     M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_WRITE
-    BCS .write             ; Found a Write Command in Buffer
+    BCS_L .write           ; Found a Write Command in Buffer
     M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_BASIC
     BCS .basic
+    M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_GETACLK
+    BCS .aclk
+    M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_DIR
+    BCS .dir
     JMP .badc              ; Didn't match any commands, must be a bad one
 .badc
     M_PRINT_STR S_CMDS_BADC
@@ -127,8 +133,23 @@ DANI_PROC_CMD:
     JMP .done
 .basic
     JMP DANI_BASIC_BOOT ; This we will never return from
+.aclk
+    JSR DANI_GETACLK_CMD
+    JMP .done
+.dir
+    M_DRTC_GET_DIR V_DANICHARBUFFER; Get Directory
+    JMP .done
 .done
     PLA
+    RTS
+    
+;----------DANI_GETACLK_CMD--------------------------
+;-- Executes the Get ASCII Clock Command
+;-------------------------------------------------
+DANI_GETACLK_CMD:
+    M_DRTC_GET_ASCII_CLOCK V_DANICHARBUFFER
+    M_PRINT_STR V_DANICHARBUFFER
+    JSR DVGA_CUR_CR
     RTS
 
 ;----------DANI-DUMP_CMD--------------------------

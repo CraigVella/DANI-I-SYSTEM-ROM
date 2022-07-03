@@ -18,6 +18,11 @@ M_PRINT_STR:     .MACRO string             ; Print a String to screen
     M_PTR_STORE string, V_SYSVAR1
     JSR DVGA_PUTS
     .ENDM
+
+M_PRINT_STR_I:   .MACRO string             ; Print a String Indirect Pointer
+    M_PTR_COPY string, V_SYSVAR1
+    JSR DVGA_PUTS
+    .ENDM
 ;-------------EO-MACROS---------------------------
 
 ;----------SUB-ROUTINES--------------------------------------------------------------------------------------------

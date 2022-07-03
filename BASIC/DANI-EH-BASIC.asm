@@ -78,9 +78,10 @@ DANI_LAB_vec
 DANI_LAB_endvec
     	
 ; ------ DANI BASIC EXTENDED ROUTINES ---------
-DANI_BASIC_VAR1 .SET $E2
-DANI_BASIC_VAR2 .SET $E4
-DANI_BASIC_VAR3 .SET $E6
+DANI_BASIC_VAR1: .SET $E2
+DANI_BASIC_VAR2: .SET $E4
+DANI_BASIC_VAR3: .SET $E6
+DANI_BASIC_BUFF: .SET $400  ; 256 Byte Buffer
 
 DANI_BASIC_SET_CURSOR:
 	JSR LAB_SCGB	      ; Scan for "," and get byte
@@ -108,3 +109,9 @@ DANI_BASIC_SET_CURSOR:
 	ADC #$80              ; Add $80 to GSB
 	STA CURSOR_LOC+1      ; Store it back - Cursor_loc now has new cursor Loc
 	RTS
+	
+DANI_BASIC_PUT:
+	JSR LAB_SCGB	          ; Scan for "," and get byte
+	TXA                       ; Move X To A
+    	STA (CURSOR_LOC)          ; Store this character into Cursor Location
+    	RTS

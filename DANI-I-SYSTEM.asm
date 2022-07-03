@@ -67,7 +67,7 @@ SYS_INIT6522:
     LDA #@01000011           ; Enable Continuas Interrupts on T1 & LATCH on PA & PB
     STA VIA+$0B              ; Put it in ACR
     ; Enable Interrupts
-    LDA #@11010010           ; Enable Interrupt on Timer1, CB1 AND CA1
+    LDA #@11010000           ; Enable Interrupt on Timer1 AND CB1
     STA VIA+$0E
     RTS
     
@@ -76,11 +76,6 @@ SYS_INIT6522:
 ;-------------------------------------------------
 SYS_IRQ:
     PHA
-    LDA #@00000010
-    BIT VIA+$0D
-    BEQ .checkKeyboard
-    JSR DRTC_IRQ
-.checkKeyboard
     ; Did a Timer go off or Is Data on PortB
     LDA #@00010000   ; Test for CB1
     BIT VIA+$0D      ; Flag Register of VIA
