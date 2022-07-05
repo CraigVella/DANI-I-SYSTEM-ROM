@@ -13,8 +13,12 @@ DRTC_CMD_RTC_ASCII:       .SET       @10000000 ; RTC Command (bit 7) Command 0 (
 DRTC_CMD_RTC_GETCLK:      .SET       @10001000 ; 
 DRTC_CMD_RTC_SETCLK:      .SET       @11000001 ; SET CLOCK w/1 ARGUMENT OF BUFFER SIZE
 DRTC_CMD_DRV_GET_DIR:     .SET       @00000000 ; GET DIR
+DRTC_CMD_DRV_LOAD_FILE:   .SET       @01000001 ; Load File w/1 Argument - File Name
 
-DRV_NO_DISK               .DB        "No Disk Present",00
+DRV_NO_DISK               .DB        "No Disk Present", $00
+DRV_NO_FILE               .DB        "No File Found By Name", $00
+DRV_LOADING               .DB        "Loading...", $00
+DRV_DONE                  .DB        "DONE", $00
 
 ;-------------MACROS------------------------------
 
@@ -32,6 +36,12 @@ M_DRTC_GET_CLK: .MACRO dst
 M_DRTC_GET_DIR: .MACRO dst
     M_PTR_STORE dst, V_DRTCVAR1
     JSR DRTC_GET_DIR
+    .ENDM
+
+M_DRTC_LOAD_FILE: .MACRO fileString, memStart
+    M_PTR_STORE fileString, V_DRTCVAR1
+    M_PTR_COPY  memStart, V_DRTCVAR2
+    JSR DRTC_LOAD_FILE
     .ENDM
 ;-------------Helpers-----------------------------
 M_DRTC_SET_OUT:   .MACRO  ; Set the Drive to OUTPUT MODE
@@ -66,6 +76,41 @@ M_DRTC_CLEARARGLEN:     .MACRO
     STA V_DRTC_ARGLEN
     STA V_DRTC_ARGLEN+1
     .ENDM
+
+;---------- DRTC_LOAD_FILE ----------------------
+;-- Parameters - 
+;-- V_DRTCVAR1 = Pointer to null Terminated File String
+;-- V_DRTCVAR2 = Pointer to Memory Starting Location
+;-- Load File into Memory Starting Location
+;-------------------------------------------------
+DRTC_LOAD_FILE:
+    M_DRTC_SENDDATA DRTC_CMD_DRV_LOAD_FILE 	; Load File
+    M_DRTC_CLEARARGLEN				; Clear Arg Len
+    M_PTR_COPY V_DRTCVAR1, V_SYSVAR1        	; Cpy Pointer for Str len Command
+    JSR SYS_STR_LEN				; String Len in V_SYSVAR2
+    INC V_SYSVAR2                               ; Increase by 1 for NUL Terminator
+    LDA V_SYSVAR2                               ; Send
+    JSR DRTC_SENDDATA				; Send String Len as Argument
+    LDA V_SYSVAR2				; 
+    STA V_DRTC_ARGLEN                           ; ARGLEN+1
+    INC V_DRTC_ARGLEN                           ; Add Null Term
+    JSR DRTC_BUFFER_TO_STREAM                   ; Send Buffer To Stream (File Name, Len of Buffer = StrLen In ArgLen)
+    JSR DRTC_RECVPACKETLEN              	; Recieve Packet Len - AKA File Size
+    LDA V_DRTC_ARGLEN                    	; Check if Zero
+    BNE .getData
+    LDA V_DRTC_ARGLEN+1
+    BNE .getData
+    M_PRINT_STR DRV_NO_FILE			; No File Found
+    JSR DVGA_CUR_CR				; CR
+    JMP .finished
+.getData
+    M_PRINT_STR DRV_LOADING                     ; Loading...
+    M_PTR_COPY V_DRTCVAR2, V_DRTCVAR1
+    JSR DRTC_STREAM_TO_BUFFER
+    M_PRINT_STR DRV_DONE
+    JSR DVGA_CUR_CR
+.finished
+    RTS
 
 ;---------- DRTC_GET_DIR ------------------------
 ;-- Parameters - 
@@ -243,5 +288,4 @@ DRTC_BUFFER_TO_STREAM:
 .keepGoing
    JMP .sendData        ; Go get the next piece of data
 .finished
-   M_DRTC_CLEAR_CA1
    RTS

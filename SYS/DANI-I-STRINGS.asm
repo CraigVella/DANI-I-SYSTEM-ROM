@@ -67,9 +67,97 @@ M_SYS_STR_APPEND: .MACRO str, addition
     M_PTR_STORE addition, V_SYSVAR2
     JSR SYS_STR_APPEND
     .ENDM
+
+M_SYS_STR_SCHR: .MACRO str, char, where
+    M_PTR_STORE str, V_SYSVAR1
+    LDA #char
+    STA V_SYSVAR2
+    LDA #where
+    STA V_SYSVAR2+1
+    JSR SYS_STR_SCHR
+    .ENDM
+    
+M_SYS_SUB_STR: .MACRO str, buffer, start, stop
+    M_PTR_STORE str, V_SYSVAR1
+    M_PTR_STORE buffer, V_SYSVAR2
+    LDA start
+    STA V_SYSVAR3
+    LDA stop
+    STA V_SYSVAR3+1
+    JSR SYS_SUB_STR
+    .ENDM
+    
+M_BYTE_FROMSTR: .MACRO string, bytePtr
+    M_PTR_COPY string, V_SYSVAR1
+    M_PTR_STORE bytePtr, V_SYSVAR2
+    JSR SYS_BYTE_FROMSTR
+    .ENDM
 ;-------------EO-MACROS---------------------------
 
 ;----------SUB-ROUTINES--------------------------------------------------------------------------------------------
+
+;------------Sub String--------------------------------------
+;-- Takes a Null Term String At ZP10 and Copies a portion of it into Buffer at ZP12
+;-- Parameters - V_SYSVAR1 - 2Bytes - LSB->GSB = String to Copy a portion of
+;-- Parameters - V_SYSVAR2 - 2Bytes - LSB->GSB = Memory Location to Copy to
+;-- Parameters - V_SYSVAR3-lb - Starting Location
+;-- Parameters - V_SYSVAR3-hb - Legnth (If Legnth is 0 it's until end of string)
+;-------------------------------------------------------------
+SYS_SUB_STR:
+    PHA
+    PHY
+    LDY V_SYSVAR3       ; Set Y to Starting Location
+.continue
+    LDA (V_SYSVAR1), Y  ; Load Index of String
+    BEQ .done           ; If it's NUL we are at end of String
+    STA (V_SYSVAR2)     ; Copy and Store In Location
+    INC V_SYSVAR2       ; Increase the pointer location
+    INY                 ; Increase Y
+    CPY V_SYSVAR3+1     ; Have we gone long enough?
+    BEQ .done
+    JMP .continue
+.done
+    LDA #$00
+    STA (V_SYSVAR2)     ; Store Nul Terminator
+    PLA
+    PLY
+    RTS
+
+;-----------String Search for Character---------------
+;-- Searches for the occurance of a character in the given 
+;-- null terminated string
+;-- Parameters - V_SYSVAR1    - Pointer to Source String
+;--            - V_SYSVAR2-lb - Character to search for
+;--            - V_SYSVAR2-hb - which occurance, 0 = dont care count them all, 1 = first, 2 = second
+;--            - V_SYSVAR3-lb - Did it occur, and how many times?
+;--            - V_SYSVAR3-hb - Where did it last occur based on V_SYSVAR2-hb
+;----------------------------------------------------
+SYS_STR_SCHR:
+    PHA
+    PHY
+    PHX
+    M_PTR_STORE $0000, V_SYSVAR3	; Zero Out Return
+    LDX #$00				; Which Occurance we are on
+    LDY #$00				; Set Start of STring
+.beg
+    LDA (V_SYSVAR1),Y			; Load Byte
+    BEQ .finished			; Null Terminator, String Finished
+    CMP V_SYSVAR2			; Compare Loaded Char with Char to search
+    BNE .next
+    INC V_SYSVAR3                       ; We found an Occurance
+    STY V_SYSVAR3+1                     ; Where we found it
+    LDA V_SYSVAR2+1                     ; How many are we looking for
+    CMP V_SYSVAR3                       ; Does the amount we are looking for match where we are looking
+    BEQ .finished                       ; Yes then we are done
+.next
+    INY
+    BEQ .finished                       ; String is over 255 bytes, we are done looking anyway
+    JMP .beg
+.finished
+    PLX
+    PLY
+    PLA
+    RTS
 
 ;-----------String Legnth----------------------------
 ;-- Returns the Legnth of a given String
@@ -146,8 +234,8 @@ SYS_STR_COPY:
 .done
     LDA #$00
     STA (V_SYSVAR2), Y  ; Store Nul Terminator
-    PLA
     PLY
+    PLA
     RTS
     
 ;------------String Append------------------------------------
@@ -351,9 +439,6 @@ SYS_STR_COMPARE:
 ;-- Parameters - V_CCHARBUFFER -> Pattern
 ;----------------------------------------------------
 SYS_STR_PATTERN:
-    PHA
-    PHX
-    PHY
     LDX #$00              ; X is an index in the pattern
     LDY #$FF              ; Y is an index in the string
 .next
@@ -372,33 +457,23 @@ SYS_STR_PATTERN:
     CMP #0                ; Are we at end of string?
     BNE .next             ; Not yet, loop
 .found
-    PLY
-    PLX
-    PLA
     RTS                   ; Success, return with C=1
 .star
     INX                   ; Skip star in pattern
     CMP V_CCHARBUFFER,X   ; String of stars equals one star
     BEQ .star             ;  so skip them also
 .stLoop
-    TXA                   ; We first try to match with * = ""
-    PHA                   ;  and grow it by 1 character every
-    TYA                   ;  time we loop
-    PHA                   ; Save X and Y on stack
+    PHX                   ; We first try to match with * = "" and grow it by 1 character every
+    PHY                   ; Save X and Y on stack
     JSR .next             ; Recursive call
-    PLA                   ; Restore X and Y
-    TAY
-    PLA
-    TAX
+    PLY
+    PLX
     BCS .found            ; We found a match, return with C=1
     INY                   ; No match yet, try to grow * string
     LDA (V_SYSVAR1),Y           ; Are we at the end of string?
     BNE .stLoop           ; Not yet, add a character
 .fail
     CLC                   ; Yes, no match found, return with C=0
-    PLY
-    PLX
-    PLA
     RTS
 
 ;----------Fill Memory Up to 256 Bytes ------------

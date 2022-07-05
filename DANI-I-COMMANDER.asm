@@ -15,7 +15,7 @@ V_DANICMDBUFFER:  .SET $400           ; DANICMD Buffer
 ;---------Static STRINGS---------------------------
 ;--------------------------------------------------
 
-S_DANI_OS       .DB "DANI-OS 32k RAM - Ver 1.3.4", $00
+S_DANI_OS       .DB "DANI-OS 32k RAM - Ver 2.0.alpha", $00
 S_Ready         .DB "System Ready.", $00
 S_CMDS          .DB ">", $00
 S_CMDS_OK       .DB "Ok", $00
@@ -27,9 +27,10 @@ S_DOT           .DB ".", $00
 S_SPACE         .DB " ", $00
 S_DOLLAR        .DB "$", $00
 S_EQUAL         .DB "=", $00
+S_QUOTE         .DB $22, $00
 
  .IF DEBUG
-S_DEBUG         .DB "BASIC",$00
+S_DEBUG         .DB "LOAD ", $22,"hw.prg", $22,",$1000", $00
  .ENDIF
 	
 ;------------- CMD STRING PATTERNS ---------------
@@ -42,6 +43,7 @@ S_CMDP_WRITE    .DB "WRITE $????",$00
 S_CMDP_BASIC    .DB "BASIC", $00
 S_CMDP_GETACLK  .DB "GETACLK", $00
 S_CMDP_DIR      .DB "DIR", $00
+S_CMDP_LOAD     .DB "LOAD ", $22, "*", $22, ",$????", $00
 
 ;------------- CMD STRING OUTPUTS ----------------
 
@@ -106,11 +108,13 @@ DANI_PROC_CMD:
     M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_WRITE
     BCS_L .write           ; Found a Write Command in Buffer
     M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_BASIC
-    BCS .basic
+    BCS_L .basic
     M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_GETACLK
     BCS .aclk
     M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_DIR
     BCS .dir
+    M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_LOAD
+    BCS .load
     JMP .badc              ; Didn't match any commands, must be a bad one
 .badc
     M_PRINT_STR S_CMDS_BADC
@@ -139,6 +143,9 @@ DANI_PROC_CMD:
 .dir
     M_DRTC_GET_DIR V_DANICHARBUFFER; Get Directory
     JMP .done
+.load 
+    JSR DANI_LOAD_CMD
+    JMP .done
 .done
     PLA
     RTS
@@ -150,6 +157,45 @@ DANI_GETACLK_CMD:
     M_DRTC_GET_ASCII_CLOCK V_DANICHARBUFFER
     M_PRINT_STR V_DANICHARBUFFER
     JSR DVGA_CUR_CR
+    RTS
+
+;----------DANI_LOAD_CMD--------------------------
+;-- Executes Load Command
+;-- Parameters - V_DANIVAR1 - 2Bytes - String Loc of CMD
+;-------------------------------------------------
+DANI_LOAD_CMD:
+    M_SYS_STR_SCHR V_DANICMDBUFFER, $22, 1
+    LDA V_SYSVAR3+1 				; Save where " appeared first
+    STA V_DANIVAR2 				; Into V_DANIVAR2lb (Low Number)
+    M_SYS_STR_SCHR V_DANICMDBUFFER, $22, 2
+    LDA V_SYSVAR3+1 				; Save where " appeared next
+    STA V_DANIVAR2+1 				; Into V_DANIVAR2hb (High Number)
+    M_SYS_STR_SCHR V_DANICMDBUFFER, '$', 1      
+    LDA V_SYSVAR3+1 				; Save where $ appeared next
+    STA V_DANIVAR3 				; Into V_DANIVAR3lb
+    INC V_DANIVAR2                              ; Increase the Starting position by 1 to get rid of the Quote
+    M_SYS_SUB_STR V_DANICMDBUFFER, V_DANICHARBUFFER, V_DANIVAR2, V_DANIVAR2+1 ; Perform a SUBSTR to extract filename
+    INC V_DANIVAR3                              ; Increase it past the $
+    M_PTR_STORE V_DANICMDBUFFER, V_DANIVAR4     ; Store CMD Buffer
+    LDY #$00                                    ; Count up to X
+.increase
+    INC V_DANIVAR4
+    INY
+    CPY V_DANIVAR3
+    BNE .increase
+    M_BYTE_FROMSTR V_DANIVAR4, V_DANIVAR2+1
+    BCS .err
+    INC V_DANIVAR4
+    INC V_DANIVAR4
+    M_BYTE_FROMSTR V_DANIVAR4, V_DANIVAR2
+    BCS .err
+    ; At this point the Filename is in V_DANICHARBUFFER & The Starting 16bit address is in V_DANIVAR2
+    M_DRTC_LOAD_FILE V_DANICHARBUFFER, V_DANIVAR2
+    JMP .done
+.err
+    M_PRINT_STR S_WRITE_BADFORM ; Bad form for the address
+    JSR DVGA_CUR_CR             ; Skip Line
+.done
     RTS
 
 ;----------DANI-DUMP_CMD--------------------------
