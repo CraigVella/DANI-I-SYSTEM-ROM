@@ -3,6 +3,9 @@
 ;-------------------------------------------------
 
 	.INCLUDE ".\BASIC\EH-BASIC.asm"    ; Include ehBasic
+	
+STR_FILENAME: .DB "Enter Filename: ", $00
+STR_BUFFER:   .SET $0400                   ; This is COMMANDER BUFFER but not in use
 
 DANI_BASIC_BOOT:
 	LDY #DANI_LAB_endvec-DANI_LAB_vec ; set index
@@ -55,9 +58,41 @@ DANI_LAB_OUT:
 	JMP .ignore
 .doBackspace
 	JMP DANI_LAB_BACKSPACE
-.ignore
+.ignore 
+	RTS
+
+DANI_LAB_SLGETFILE:
+	M_DRTC_GET_DIR STR_BUFFER
+	BCS .err
+	M_PRINT_STR STR_FILENAME
+	JSR SYS_GETSTR
+	M_PTR_STORE V_INPUTBUFFER, V_DRTCVAR1
+	M_PTR_COPY Smeml, V_DRTCVAR2
+	RTS
+.err
+	PLA
+	PLA
+	RTS
+
 DANI_LAB_LOAD:
+	JSR DANI_LAB_SLGETFILE
+	JSR DRTC_LOAD_FILE
+	BCS .err
+	M_PTR_COPY V_DRTCVAR1, Svarl
+	JMP LAB_1319
+.err
+	RTS
+	
 DANI_LAB_SAVE:
+	JSR DANI_LAB_SLGETFILE
+	SEC
+	LDA Svarl
+	SBC Smeml
+	STA V_DRTCVAR3
+	LDA Svarh
+	SBC Smemh
+	STA V_DRTCVAR3+1
+	JSR DRTC_SAVE_FILE
 	RTS
 
 DANI_LAB_BACKSPACE:

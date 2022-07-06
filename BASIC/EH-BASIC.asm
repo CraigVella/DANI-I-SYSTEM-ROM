@@ -469,7 +469,7 @@ Ibuffs            = VEC_SV+$16
                               ; start of input buffer after IRQ/NMI code
 Ibuffe            = Ibuffs+$47; end of input buffer
 
-Ram_base          = $0500     ; start of user RAM (set as needed, should be page aligned)
+Ram_base          = $0600     ; start of user RAM (set as needed, should be page aligned)
 Ram_top           = $8000     ; end of user RAM+1 (set as needed, should be page aligned)
 
 Stack_floor       = 16        ; bytes left free on stack for background interrupts

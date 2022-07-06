@@ -111,48 +111,48 @@ SYS_DIV_16BIT:
 ;-- Return     - V_MATHVAR1 8-bit  Quotient
 ;-- Return     - V_MATHVAR2 8-bit  Remainder  
 ;--------------------------------------------------------------------------
-SYS_DIV_8BIT:
-   PHA
-   PHX
-   LDA #0
-   LDX #8
-   ASL V_MATHVAR1
-.l1 
-   ROL
-   CMP V_MATHVAR2
-   BCC .l2
-   SBC V_MATHVAR2
-.l2 
-   ROL V_MATHVAR1
-   DEX
-   BNE .l1
-   STA V_MATHVAR2
-   PLX
-   PLA
-   RTS
+;SYS_DIV_8BIT:
+;   PHA
+;   PHX
+;   LDA #0
+;   LDX #8
+;   ASL V_MATHVAR1
+;.l1 
+;   ROL
+;   CMP V_MATHVAR2
+;   BCC .l2
+;   SBC V_MATHVAR2
+;.l2 
+;   ROL V_MATHVAR1
+;   DEX
+;   BNE .l1
+;   STA V_MATHVAR2
+;   PLX
+;   PLA
+;   RTS
  
 ;------------SYS Multiply 8bit by 8bit-------------------------------------
 ;-- Parameters - V_MATHVAR1 8-bit  Integer  
 ;-- Parameters - V_MATHVAR2 8-bit  Integer
 ;-- Return     - V_MATHVAR2 8-bit  Product  
 ;--------------------------------------------------------------------------
-SYS_MULT_8BIT:
-   PHA
-   PHX
-   LDX #8
-.l1
-   ASL
-   ASL V_MATHVAR1
-   BCC .l1
-   CLC
-   ADC V_MATHVAR2
-.l2
-   DEX
-   BNE .l2
-   STA V_MATHVAR2
-   PLX
-   PLA
-   RTS
+;SYS_MULT_8BIT:
+;   PHA
+;   PHX
+;   LDX #8
+;.l1
+;   ASL
+;   ASL V_MATHVAR1
+;   BCC .l1
+;   CLC
+;   ADC V_MATHVAR2
+;.l2
+;   DEX
+;   BNE .l2
+;   STA V_MATHVAR2
+;   PLX
+;   PLA
+;   RTS
    
 ;------------SYS Multiply 8bit by 8bit - 16bit Product --------------------
 ;-- Parameters - V_MATHVAR1 8-bit  Integer  

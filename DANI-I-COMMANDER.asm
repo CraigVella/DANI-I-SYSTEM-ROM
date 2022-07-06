@@ -15,7 +15,7 @@ V_DANICMDBUFFER:  .SET $400           ; DANICMD Buffer
 ;---------Static STRINGS---------------------------
 ;--------------------------------------------------
 
-S_DANI_OS       .DB "DANI-OS 32k RAM - Ver 2.0.alpha", $00
+S_DANI_OS       .DB "DANI-OS 32k RAM - Ver 2.0", $00
 S_Ready         .DB "System Ready.", $00
 S_CMDS          .DB ">", $00
 S_CMDS_OK       .DB "Ok", $00
@@ -89,7 +89,6 @@ DANI_CMD_MAIN:
     M_STR_TOUPPER V_INPUTBUFFER, V_DANICMDBUFFER ; Turn Input Buffer to Caps and Place in DANICMDBUFFER
     M_DANI_PROC_CMD V_DANICMDBUFFER              ; Process the Command
     JMP .loop
-    JMP HALT
 
 ;----------DANI-PROC_CMD--------------------------
 ;-- Process Commands

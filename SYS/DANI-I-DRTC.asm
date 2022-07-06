@@ -24,11 +24,6 @@ DRV_LOADING               .DB        "Loading...", $00
 DRV_SAVING                .DB        "Saving...", $00
 DRV_DONE                  .DB        "DONE", $00
 
-DEBUG_SENDDATA_WAIT       .DB        "SENDDATA-WAIT ", $00
-DEBUG_SENDDATA_ACK        .DB        "SENDDATA-ACK ", $00
-;DEBUG_RECIEVE_WAIT        .DB        "RECIEVE-WAIT ", $00
-;DEBUG_RECIEVE_ACK         .DB        "RECIEVE-ACK ", $00
-
 ;-------------MACROS------------------------------
 
 ;-------------Commands----------------------------
@@ -151,8 +146,10 @@ DRTC_LOAD_FILE:
     BNE .getData
     M_PRINT_STR DRV_NO_FILE			; No File Found
     JSR DVGA_CUR_CR				; CR
+    SEC                                         ; NO FILE
     JMP .finished
 .getData
+    CLC                                         ; Clear Carry
     M_PRINT_STR DRV_LOADING                     ; Loading...
     M_PTR_COPY V_DRTCVAR2, V_DRTCVAR1
     JSR DRTC_STREAM_TO_BUFFER
@@ -167,6 +164,7 @@ DRTC_LOAD_FILE:
 ;-- Get Directory Listing
 ;------------------------------------------------- 
 DRTC_GET_DIR:
+    CLC                                  ; Clear Carry we will use as an error
     M_DRTC_SENDDATA DRTC_CMD_DRV_GET_DIR ; Get the directory
     M_PTR_COPY V_DRTCVAR1,V_DRTCVAR2     ; Save Buffer Start Location
     JSR DRTC_RECVPACKETLEN               ; Recieve Packet Len - Packet Len for Directories is the amount of Null Terminated Strings will be transferred
@@ -176,6 +174,7 @@ DRTC_GET_DIR:
     BNE .getData
     M_PRINT_STR DRV_NO_DISK              ; No Disk In Drive
     JSR DVGA_CUR_CR
+    SEC                                  ; Error Carry Set
     JMP .finished
 .getData
     M_PTR_COPY V_DRTCVAR2,V_DRTCVAR1     ; Set Buffer Start Location

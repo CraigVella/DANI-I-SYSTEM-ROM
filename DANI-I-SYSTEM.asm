@@ -35,8 +35,6 @@ START:
     JSR SYS_INIT          ; Initialize the System
     JSR DVGA_DRAWLOGO     ; Draw the DANI-I Logo
     JMP DANI_CMD_MAIN     ; Main Program
-HALT:
-    JMP HALT              ; Done: "halt" in an infinite loop
 
 ;----------SUB-ROUTINES--------------------------------------------------------------------------------------------
     
@@ -96,7 +94,7 @@ SYS_IRQ:
 ;---------VECTORS----------------------------------
 VECTORS:
     .ORG $FFFA     ; 6502 Starts reading its vectors here
-    .word HALT     ; NMI
+    .word RESET    ; NMI
     .word RESET    ; RESET
     .WORD SYS_IRQ  ; IRQ-BRK
 
