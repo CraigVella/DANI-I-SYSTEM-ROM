@@ -9,16 +9,25 @@ V_DRTCVAR3:	          .SET       $2C
 V_DRTC_ARGLEN:	          .SET       $2E
 
 DRTC_DATAPORT:            .SET       $9001     ; PA1
+
 DRTC_CMD_RTC_ASCII:       .SET       @10000000 ; RTC Command (bit 7) Command 0 (bit 6-3) ArgsLen (bits 2-0)
 DRTC_CMD_RTC_GETCLK:      .SET       @10001000 ; 
 DRTC_CMD_RTC_SETCLK:      .SET       @11000001 ; SET CLOCK w/1 ARGUMENT OF BUFFER SIZE
+
 DRTC_CMD_DRV_GET_DIR:     .SET       @00000000 ; GET DIR
 DRTC_CMD_DRV_LOAD_FILE:   .SET       @01000001 ; Load File w/1 Argument - File Name
+DRTC_CMD_DRV_SAVE_FILE:   .SET       @00100011 ; Save File w/3 Arguments - File Size(2b), File Name(1b)
 
 DRV_NO_DISK               .DB        "No Disk Present", $00
 DRV_NO_FILE               .DB        "No File Found By Name", $00
 DRV_LOADING               .DB        "Loading...", $00
+DRV_SAVING                .DB        "Saving...", $00
 DRV_DONE                  .DB        "DONE", $00
+
+DEBUG_SENDDATA_WAIT       .DB        "SENDDATA-WAIT ", $00
+DEBUG_SENDDATA_ACK        .DB        "SENDDATA-ACK ", $00
+;DEBUG_RECIEVE_WAIT        .DB        "RECIEVE-WAIT ", $00
+;DEBUG_RECIEVE_ACK         .DB        "RECIEVE-ACK ", $00
 
 ;-------------MACROS------------------------------
 
@@ -43,6 +52,14 @@ M_DRTC_LOAD_FILE: .MACRO fileString, memStart
     M_PTR_COPY  memStart, V_DRTCVAR2
     JSR DRTC_LOAD_FILE
     .ENDM
+
+M_DRTC_SAVE_FILE: .MACRO fileString, memStart, len
+    M_PTR_STORE fileString, V_DRTCVAR1
+    M_PTR_COPY  memStart, V_DRTCVAR2
+    M_PTR_COPY  len, V_DRTCVAR3
+    JSR DRTC_SAVE_FILE
+    .ENDM
+    
 ;-------------Helpers-----------------------------
 M_DRTC_SET_OUT:   .MACRO  ; Set the Drive to OUTPUT MODE
     LDA #$FF
@@ -60,10 +77,12 @@ M_DRTC_CLEAR_CA1:       .MACRO
     .ENDM
 
 M_DRTC_WAIT_FOR_DATA:   .MACRO
+ .IF DEBUG == 0
     LDA #@00000010
 .loop
     BIT VIA+$0D
     BEQ .loop
+ .ENDIF
     .ENDM
     
 M_DRTC_SENDDATA:        .MACRO data
@@ -76,6 +95,37 @@ M_DRTC_CLEARARGLEN:     .MACRO
     STA V_DRTC_ARGLEN
     STA V_DRTC_ARGLEN+1
     .ENDM
+    
+;---------- DRTC_SAVE_FILE ----------------------
+;-- Parameters - 
+;-- V_DRTCVAR1 = Pointer to null Terminated File String
+;-- V_DRTCVAR2 = Pointer to Memory Starting Location
+;-- V_DRTCVAR3 = 16bit Len
+;-- Save file by name, starting at memory location for 16bit len
+;-------------------------------------------------
+DRTC_SAVE_FILE:
+    M_DRTC_SENDDATA DRTC_CMD_DRV_SAVE_FILE      ; Send Save File Command,3 Args (SizeToWrite-2B, FileNameSize-1B)
+    M_DRTC_CLEARARGLEN				; Clear Arg Len
+    LDA V_DRTCVAR3                              ; LB Len
+    JSR DRTC_SENDDATA                           ; LB Sent
+    LDA V_DRTCVAR3+1                            ; HB Len
+    JSR DRTC_SENDDATA                           ; HB Sent
+    M_PTR_COPY V_DRTCVAR1, V_SYSVAR1        	; Cpy Pointer for Str len Command
+    JSR SYS_STR_LEN				; String Len in V_SYSVAR2
+    INC V_SYSVAR2                               ; Increase by 1 for NUL Terminator
+    LDA V_SYSVAR2                               ; Right Size for String Len
+    JSR DRTC_SENDDATA				; Send String Len as Argument
+    M_PRINT_STR DRV_SAVING                      ; Saving...
+    ; Now Send Filename String
+    LDA V_SYSVAR2				; Load Up Str Len				; 
+    STA V_DRTC_ARGLEN                           ; ARGLEN
+    JSR DRTC_BUFFER_TO_STREAM                   ; Send Buffer To Stream (File Name, Len of Buffer = StrLen In ArgLen)
+    M_PTR_COPY V_DRTCVAR2, V_DRTCVAR1           ; Set Pointer to read to Memory of what to save
+    M_PTR_COPY V_DRTCVAR3, V_DRTC_ARGLEN        ; Set Len into Arg Len
+    JSR DRTC_BUFFER_TO_STREAM                   ; Send Memory To Stream
+    M_PRINT_STR DRV_DONE         		; Done
+    JSR DVGA_CUR_CR
+    RTS
 
 ;---------- DRTC_LOAD_FILE ----------------------
 ;-- Parameters - 
@@ -92,8 +142,7 @@ DRTC_LOAD_FILE:
     LDA V_SYSVAR2                               ; Send
     JSR DRTC_SENDDATA				; Send String Len as Argument
     LDA V_SYSVAR2				; 
-    STA V_DRTC_ARGLEN                           ; ARGLEN+1
-    INC V_DRTC_ARGLEN                           ; Add Null Term
+    STA V_DRTC_ARGLEN                           ; ARGLEN
     JSR DRTC_BUFFER_TO_STREAM                   ; Send Buffer To Stream (File Name, Len of Buffer = StrLen In ArgLen)
     JSR DRTC_RECVPACKETLEN              	; Recieve Packet Len - AKA File Size
     LDA V_DRTC_ARGLEN                    	; Check if Zero
@@ -189,12 +238,15 @@ DRTC_RECVPACKETLEN:
     PHA
     M_DRTC_CLEARARGLEN
     M_DRTC_SET_RECV      ; Set Recieve
+    ;M_PRINT_STR DEBUG_RECIEVE_WAIT
     M_DRTC_WAIT_FOR_DATA ; Wait for the data to hit 
     LDA DRTC_DATAPORT    ; Load it in, and clear the flag
     STA V_DRTC_ARGLEN    ; It's In
+    ;M_PRINT_STR DEBUG_RECIEVE_WAIT
     M_DRTC_WAIT_FOR_DATA ; Wait for data again to hit the port
     LDA DRTC_DATAPORT    ; Same
     STA V_DRTC_ARGLEN+1  ; Hibyte save
+    ;M_PRINT_STR DEBUG_RECIEVE_ACK
     M_DRTC_WAIT_FOR_DATA ; Wait for Final ACK for Reset
     M_DRTC_CLEAR_CA1     ; Clear CA1 - Back to start
     PLA
@@ -207,11 +259,15 @@ DRTC_RECVPACKETLEN:
 DRTC_SENDDATA:
    PHA
    M_DRTC_SET_OUT       ; Set DRTC Direction
-   M_DRTC_CLEAR_CA1     ; Clear CA1 Just in Case - Shouldn't have to if everyone is nice
    PLA                  ; Pulls Data to send off stack
    STA DRTC_DATAPORT    ; Send it on PA1
+   ;M_PRINT_STR DEBUG_SENDDATA_WAIT
    M_DRTC_WAIT_FOR_DATA ; Wait for Confirmatiom
-   M_DRTC_CLEAR_CA1     ; Clear CA1 - They Recieved It!
+   LDA #$00             ; Load NUL for Final ACK
+   STA DRTC_DATAPORT    ; Send Final ACK
+   ;M_PRINT_STR DEBUG_SENDDATA_ACK
+   M_DRTC_WAIT_FOR_DATA ; Wait for Confirmatiom
+   M_DRTC_CLEAR_CA1     ; Clear CA1 - Back to start
    RTS
    
 ;---------- DRTC_RECV_STRING-----------------------
@@ -252,12 +308,21 @@ DRTC_STREAM_TO_BUFFER:
    BNE .skipHBB         ; Did it roll?
    INC V_DRTCVAR1+1     ; Increase the High Byte Buffer Pointer
 .skipHBB
+   LDA V_DRTC_ARGLEN
+   BNE .dec
+   LDA V_DRTC_ARGLEN+1
+   BNE .dec
+   JMP .finished
+.dec
    DEC V_DRTC_ARGLEN    ; Decrement the buffer len
    BNE .keepGoing
    LDA V_DRTC_ARGLEN+1  ; LB is Zero Check HB
    BEQ .finished        ; LB and HB are Zero .finished
-   DEC V_DRTC_ARGLEN+1  ; Decrement the High Buffer Byte
 .keepGoing
+   LDA #$FF             ; We need to see if LB rolled
+   CMP V_DRTC_ARGLEN    ; 
+   BNE .getData         ; We didn't roll go to next piece of data
+   DEC V_DRTC_ARGLEN+1  ; Dec the HB
    JMP .getData         ; Go get the next piece of data
 .finished
    M_DRTC_WAIT_FOR_DATA ; Wait for Final ACK for Reset
@@ -280,12 +345,25 @@ DRTC_BUFFER_TO_STREAM:
    BNE .skipHBB         ; Did it roll?
    INC V_DRTCVAR1+1     ; Increase the High Byte Buffer Pointer
 .skipHBB
+   LDA V_DRTC_ARGLEN
+   BNE .dec
+   LDA V_DRTC_ARGLEN+1
+   BNE .dec
+   JMP .finished
+.dec
    DEC V_DRTC_ARGLEN    ; Decrement the buffer len
    BNE .keepGoing
    LDA V_DRTC_ARGLEN+1  ; LB is Zero Check HB
    BEQ .finished        ; LB and HB are Zero .finished
-   DEC V_DRTC_ARGLEN+1  ; Decrement the High Buffer Byte
 .keepGoing
+   LDA #$FF             ; We need to see if LB rolled
+   CMP V_DRTC_ARGLEN    ; 
+   BNE .sendData        ; We didn't roll go to next piece of data
+   DEC V_DRTC_ARGLEN+1  ; Dec the HB
    JMP .sendData        ; Go get the next piece of data
 .finished
+   LDA #$00             ; Load NUL for Final ACK
+   STA DRTC_DATAPORT    ; Send Final ACK
+   M_DRTC_WAIT_FOR_DATA ; Wait for Confirmatiom
+   M_DRTC_CLEAR_CA1     ; Clear CA1 - Back to start
    RTS

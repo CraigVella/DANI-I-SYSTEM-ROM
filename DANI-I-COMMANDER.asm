@@ -30,7 +30,7 @@ S_EQUAL         .DB "=", $00
 S_QUOTE         .DB $22, $00
 
  .IF DEBUG
-S_DEBUG         .DB "LOAD ", $22,"hw.prg", $22,",$1000", $00
+S_DEBUG         .DB "SAVE ", $22,"1.txt", $22,",$1000,$0200", $00
  .ENDIF
 	
 ;------------- CMD STRING PATTERNS ---------------
@@ -44,6 +44,7 @@ S_CMDP_BASIC    .DB "BASIC", $00
 S_CMDP_GETACLK  .DB "GETACLK", $00
 S_CMDP_DIR      .DB "DIR", $00
 S_CMDP_LOAD     .DB "LOAD ", $22, "*", $22, ",$????", $00
+S_CMDP_SAVE     .DB "SAVE ", $22, "*", $22, ",$????,$????", $00
 
 ;------------- CMD STRING OUTPUTS ----------------
 
@@ -110,11 +111,13 @@ DANI_PROC_CMD:
     M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_BASIC
     BCS_L .basic
     M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_GETACLK
-    BCS .aclk
+    BCS_L .aclk
     M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_DIR
     BCS .dir
     M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_LOAD
     BCS .load
+    M_STR_PATTERNMATCH V_DANIVAR1, S_CMDP_SAVE
+    BCS .save
     JMP .badc              ; Didn't match any commands, must be a bad one
 .badc
     M_PRINT_STR S_CMDS_BADC
@@ -146,6 +149,9 @@ DANI_PROC_CMD:
 .load 
     JSR DANI_LOAD_CMD
     JMP .done
+.save
+    JSR DANI_SAVE_CMD
+    JMP .done
 .done
     PLA
     RTS
@@ -157,6 +163,65 @@ DANI_GETACLK_CMD:
     M_DRTC_GET_ASCII_CLOCK V_DANICHARBUFFER
     M_PRINT_STR V_DANICHARBUFFER
     JSR DVGA_CUR_CR
+    RTS
+
+;----------DANI_SAVE_CMD--------------------------
+;-- Executes Load Command
+;-- Parameters - V_DANIVAR1 - 2Bytes - String Loc of CMD
+;-------------------------------------------------
+DANI_SAVE_CMD:
+    M_SYS_STR_SCHR V_DANICMDBUFFER, $22, 1
+    LDA V_SYSVAR3+1 				; Save where " appeared first
+    STA V_DANIVAR2 				; Into V_DANIVAR2lb (Low Number)
+    M_SYS_STR_SCHR V_DANICMDBUFFER, $22, 2
+    LDA V_SYSVAR3+1 				; Save where " appeared next
+    STA V_DANIVAR2+1 				; Into V_DANIVAR2hb (High Number)
+    M_SYS_STR_SCHR V_DANICMDBUFFER, '$', 1      
+    LDA V_SYSVAR3+1 				; Save where $ appeared next
+    STA V_DANIVAR3 				; Into V_DANIVAR3lb
+    M_SYS_STR_SCHR V_DANICMDBUFFER, '$', 2      
+    LDA V_SYSVAR3+1 				; Save where $ appeared next (second time)
+    STA V_DANIVAR3+1 				; Into V_DANIVAR3hb
+    ; Extract the File Name String
+    INC V_DANIVAR2                              ; Increase the Starting position by 1 to get rid of the Quote
+    M_SYS_SUB_STR V_DANICMDBUFFER, V_DANICHARBUFFER, V_DANIVAR2, V_DANIVAR2+1 ; Perform a SUBSTR to extract filename
+    ; Extract the starting byte
+    INC V_DANIVAR3                              ; Increase it past the $
+    INC V_DANIVAR3+1                            ; Increase next one past the $
+    M_PTR_STORE V_DANICMDBUFFER, V_DANIVAR4     ; Store CMD Buffer, We will Use V_DANIVAR4 as the pointer
+    LDY #$00                                    ; Count up
+.increase
+    INC V_DANIVAR4
+    INY
+    CPY V_DANIVAR3
+    BNE .increase
+    M_BYTE_FROMSTR V_DANIVAR4, V_DANIVAR2+1
+    BCS .err
+    INC V_DANIVAR4
+    INC V_DANIVAR4
+    M_BYTE_FROMSTR V_DANIVAR4, V_DANIVAR2
+    BCS .err    
+    ; THIS IS LAZY AND WE CAN SAVE MEMORY BY DOING A PTR AND LOOP
+    M_PTR_STORE V_DANICMDBUFFER, V_DANIVAR4     ; Store CMD Buffer, We will Use V_DANIVAR4 as the pointer
+    LDY #$00                                    ; Count up
+.increase2
+    INC V_DANIVAR4
+    INY
+    CPY V_DANIVAR3+1
+    BNE .increase2
+    M_BYTE_FROMSTR V_DANIVAR4, V_DANIVAR3+1
+    BCS .err
+    INC V_DANIVAR4
+    INC V_DANIVAR4
+    M_BYTE_FROMSTR V_DANIVAR4, V_DANIVAR3
+    BCS .err
+    ; At this point the Filename is in V_DANICHARBUFFER & The Starting 16bit address is in V_DANIVAR2, the 16 Bit Len is in V_DANIVAR3
+    M_DRTC_SAVE_FILE V_DANICHARBUFFER, V_DANIVAR2, V_DANIVAR3
+    JMP .done
+.err  
+    M_PRINT_STR S_WRITE_BADFORM ; Bad form for the address
+    JSR DVGA_CUR_CR             ; Skip Line
+.done
     RTS
 
 ;----------DANI_LOAD_CMD--------------------------
